@@ -7,7 +7,8 @@ library(dplyr)
 library(ggplot2)
 library(psych)
 library(caret)
-library(tree) 
+library(tree)
+library(GGally)
 
 # read data
 bike <- read.csv("~/Documents/NCSU/ST558/repos/Project-3/SeoulBikeData.csv", header = FALSE)
@@ -16,6 +17,20 @@ colnames(bike) <- c("Date","Rented_Bike_Count","Hour","Temperature","Humidity","
 bike<-bike[-1,]
 # drop date
 #bike <- subset(bike, select = -c(Date))
+
+#Convert the data type into numeric
+bike <- transform(bike,Rented_Bike_Count = as.numeric(Rented_Bike_Count),
+                  Hour = as.numeric(Hour),
+                  Temperature = as.numeric(Temperature),
+                  Humidity = as.numeric(Humidity),
+                  Wind_speed = as.numeric(Wind_speed),
+                  Visibility = as.numeric(Visibility),
+                  Dew_point_temperature = as.numeric(Dew_point_temperature),
+                  Solar_Radiation = as.numeric(Solar_Radiation),
+                  Rainfall = as.numeric(Rainfall),
+                  Snowfall = as.numeric(Snowfall))
+
+# print(describe(bike))
 
 # create binary variable for response variable
 # 1 if the number of bikes rented is greater than or equal to 700 and 0 otherwise
@@ -63,8 +78,7 @@ ui <- fluidPage(
                          selectInput(
                              "Select_Variables",
                              "Select Variables",
-                             choices = c("Rented Bike Count"="Rented_Bike_Count",
-                                         "Temperature"="Temperature"
+                             choices = c("Rented Bike Count"="Rented_Bike_Count","Hour"="Hour","Temperature(°C)"="Temperature","Humidity(%)"="Humidity","Wind speed (m/s)"="Wind_speed","Visibility (10m)"="Visibility","Dew point temperature(°C)"="Dew_point_temperature","Solar Radiation (MJ/m2)"="Solar_Radiation","Rainfall(mm)"="Rainfall","Snowfall (cm)"="Snowfall"
                              ),
                              selected = "Rented_Bike_Count"
                          ),
@@ -122,8 +136,8 @@ ui <- fluidPage(
                          
                          checkboxGroupInput(inputId = "modelColumns", 
                                             label = "Select variable(s) of the model",
-                                            choices = c("Rented_Bike_Count"="Rented_Bike_Count", "BinRent"="binRent"),
-                                            selected = c("Rented_Bike_Count","binRent")),
+                                            choices = c("Hour"="Hour","Temperature(°C)"="Temperature","Humidity(%)"="Humidity","Wind speed (m/s)"="Wind_speed","Visibility (10m)"="Visibility","Dew point temperature(°C)"="Dew_point_temperature","Solar Radiation (MJ/m2)"="Solar_Radiation","Rainfall(mm)"="Rainfall","Snowfall (cm)"="Snowfall"),
+                                            selected = c("Hour","Temperature","Humidity","Wind_speed","Visibility","Dew_point_temperature","Solar_Radiation","Rainfall","Snowfall")),
                          
                          #set a button and fit all three models on the training data
                          actionButton("buttonRunModels", "Run Models"),
@@ -136,11 +150,15 @@ ui <- fluidPage(
                                       choiceNames = c("Multiple Linear Regression","Regression Tree","Random Forest"),
                                       choiceValues = c("MLR", "Rtree","RF")),
                          
-                         numericInput("predcount", "Rented_Bike_Count Prediction",100000, min = 100000, 
-                                      max = 200000,step=10000),
-                         
-                         numericInput("predBinRent", "BinRent Prediction",100, min = 10, 
-                                      max = 500,step=10)
+                         numericInput("Hour", "Hour",10, min = 0, max = 23,step=1),
+                         numericInput("Temperature", "Temperature(°C)",0, min = -17.8, max = 39.4,step=0.1),
+                         numericInput("Humidity", "Humidity(%)",50, min = 0, max = 98,step=1),
+                         numericInput("Wind_speed", "Wind speed(m/s)",5, min = 0, max = 7.4,step=0.1),
+                         numericInput("Visibility", "Visibility(10m)",100, min = 27, max = 2000,step=10),
+                         numericInput("Dew_point_temperature", "Dew point temperature(°C)",-30.6, min = -30.6, max = 27.2,step=0.1),
+                         numericInput("Solar_Radiation", "Solar Radiation(MJ/m2)",1, min = 0, max = 3.52,step=0.1),
+                         numericInput("Rainfall", "Rainfall(mm)",25, min = 0, max = 35,step=1),
+                         numericInput("Snowfall", "Snowfall(cm)",8, min = 0, max = 8.8,step=0.1)
                      ),
                      
                      mainPanel(
@@ -222,49 +240,56 @@ server <- function(input, output, session) {
     
     #Data Exploration
     
-    #Numerical Summaries
+    # Numerical Summaries
+    # observeEvent(input$Select_Variables, {
+    #     print(input$Select_Variables)
+    # })
+    
+    getDataAll <- reactive({
+        #For complete dataset
+        newData <- bike[1:1000,input$Select_Variables,drop=FALSE]
+        print(newData)
+    })
     
     output$Numerical_Summaries <- DT::renderDataTable({
-        bike$Season<-as.factor(bike$Season)
+        # bike$Season<-as.factor(bike$Season)
         if (input$Select_Variables=="Rented_Bike_Count"){
             if(input$SumOption=="common"){
+                #class(bike$Rented_Bike_Count)
                 describe(bike$Rented_Bike_Count, fast=TRUE)
             }else if(input$SumOption=="IQR"){
                 describe(bike$Rented_Bike_Count, IQR=TRUE)
             }
             
-            else if (input$Select_Variables=="Temperature"){
-                if(input$SumOption=="common"){
-                    describe(bike$Temperature, fast=TRUE)
-                }else if(input$SumOption=="IQR"){
-                    describe(bike$Temperature, IQR=TRUE)
-                }
+        }else if (input$Select_Variables=="Temperature"){
+            if(input$SumOption=="common"){
+                describe(bike$Temperature, fast=TRUE)
+            }else if(input$SumOption=="IQR"){
+                describe(bike$Temperature, IQR=TRUE)
             }
         }
-        
     })
     
-    
+    #Select_Variables
     #Graphical Summaries
     
     output$Graphical_Summaries <- renderPlot({
         if(input$PlotType == "Histogram"){
-            ggplot(data = bike, aes(x = Rented_Bike_Count))
-            + geom_histogram() +
-                labs(title = "Histogram of Rented_Bike_Count", xlab = "Rented_Bike_Count", ylab= "Count")
-
+            # print(getDataAll())
+            ggplot(data = bike, aes(x = bike$Rented_Bike_Count)) +
+             geom_histogram(color="black", fill="white") #+
+            # labs(title = "Histogram of Rented_Bike_Count", xlab = "Rented_Bike_Count", ylab= "Count")
         }else {
             ###Scatter Plot
             # numerical variables from data set only
             bike1 <- subset(bike, select = -c(Date,Seasons, Holiday, Functioning_Day, binRent))
+            # print(bike1)
             # scatterplot matrix of all numeric variables
             ggpairs(bike1)
         }
     })
-
     
     # Modeling page
-    
     # Model Info tab
     output$modelInfo <- renderUI({
         if(input$Select_model == "MLR"){
@@ -281,29 +306,90 @@ server <- function(input, output, session) {
     })
     
     # # Model Fitting tab
-    # propor<-output$proportion
-    # # Data Split
-    # set.seed(111) 
-    # # Split the data into a training and test set
-    # train <- sample(1:nrow(bike), size = nrow(bike)*propor) 
-    # test <- setdiff(1:nrow(bike), train)
-    # # trainiing and testing subsets
-    # bikeTrain <- bike[train, ]
-    # bikeTest <- bike[test, ]
+    observeEvent(input$buttonRunModels, {
+        propor<-as.numeric(input$proportion)
+        # print(class(propor))
+        # Data Split
+        set.seed(111)
+        bike1 <- subset(bike, select = -c(Date,Seasons, Holiday, Functioning_Day, binRent))
+        # print(sapply(bike1, class))
+        # Split the data into a training and test set
+        train <- sample(1:nrow(bike1), size = nrow(bike1)*propor)
+        test <- setdiff(1:nrow(bike1), train)
+        # # trainiing and testing subsets
+        bikeTrain <- bike1[train, ]
+        bikeTest <- bike1[test, ]
+        column_list<-c(input$modelColumns, "Rented_Bike_Count")
+        # print(column_list)
+        subbikeTest <- bikeTest[,column_list,drop=FALSE]
+        subbikeTrain <- bikeTrain[,column_list,drop=FALSE]
+        # print(bikeTest)
+        mlrFit <- train(Rented_Bike_Count ~ ., data = subbikeTrain,
+                      method = "lm",
+                      # standardize the variables (center and scale each observation)
+                      preProcess = c("center", "scale"),
+                      trControl = trainControl(method = "cv", number = 5))
+        output$model_MLR <- renderPrint(
+            summary(mlrFit)
+        )
+        
+        randomForestFit <- train(Rented_Bike_Count ~ ., data = subbikeTrain,
+                                 method="rf",
+                                 preProcess=c("center","scale"),
+                                 trControl=trainControl(method="repeatedcv",number=2,repeats=1),
+                                 tuneGrid=data.frame(mtry=1:3))
+        # print(summary(randomForestFit))
+        # output$model_RF <- renderPlot(
+        #     varImpPlot(randomForestFit)
+        # )
+        
+        varImpOutput<-caret::varImp(randomForestFit, scale = FALSE)
+        output$model_RF <- renderPrint(
+            #Variable Importance
+            varImpOutput
+        )
+        
+        treeFit <- tree(Rented_Bike_Count ~ ., data = subbikeTrain)
+        output$modelPlotRTree <- renderPlot({
+            plot(treeFit);text(treeFit)
+        })
+        
+        #Display the summary statistics
+        output$modelPred <- renderPrint({
+            dfPredictions<-data.frame(Hour=input$Hour,
+                                      Temperature=input$Temperature,
+                                      Humidity=input$Humidity,
+                                      Wind_speed=input$Wind_speed,
+                                      Visibility=input$Visibility,
+                                      Dew_point_temperature=input$Dew_point_temperature,
+                                      Solar_Radiation=input$Solar_Radiation,
+                                      Rainfall=input$Rainfall,
+                                      Snowfall=input$Snowfall
+            )
+            dataInput <- dfPredictions[,input$modelColumns]
+            
+            #Linear Regression Model
+            p_LMNew <- predict(mlrFit, newdata = dataInput)
+            p_LMOut<-paste0("The predicted Rented Bike Count from the Linear Regression Model is: ",p_LMNew)
+            #Regression Tree Model
+            p_RTNew <- predict(treeFit, newdata = dataInput)
+            p_RTOut<-paste0("The predicted Rented Bike Count from the Regression Tree Model is: ",p_RTNew)
+            #Random Forest Model
+            p_RFNew <- predict(randomForestFit, newdata = dataInput)
+            p_RFOut<-paste0("The predicted Rented Bike Count from the Random Forest Model is: ",p_RFNew)
+            
+            if (input$rdoPredModel=="MLR"){
+                p_LMOut
+            }else if(input$rdoPredModel=="Rtree"){
+                p_RTOut
+            }else{
+                p_RFOut
+            }
+        })
+    })
+
     
-    ###Run  models button
-    #observeEvent(input$buttonRunModels, {
-    #    splitDataList<-splitData()
-    ###Run Linear Regression Model
-    #    mlrFit <- train(modelVars(),
-    #                    data = splitDataList$stockDataTrain,
-    #                    method="lm",
-    #                    trControl=trainControl(method="cv",number=5))
-    
-    #Display the summary statistics
-    #    output$modelSummaryMLR <- renderPrint(
-    #        summary(mlrFit)
-    #    )
+
     #}
     
     #Data Page
@@ -320,8 +406,8 @@ server <- function(input, output, session) {
             rownames = FALSE,
             scroller = TRUE,
             scrollX = TRUE,
-            scrollY = "500px"
-            #paging = FALSE
+            scrollY = "500px",
+            paging = FALSE
         )
     )
     
