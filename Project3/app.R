@@ -6,6 +6,8 @@ library(tidyverse)
 library(dplyr)
 library(ggplot2)
 library(psych)
+library(caret)
+library(tree) 
 
 # read data
 bike <- read.csv("~/Documents/NCSU/ST558/repos/Project-3/SeoulBikeData.csv", header = FALSE)
@@ -60,9 +62,9 @@ ui <- fluidPage(
                          h4("Numerical Summaries"),
                          selectInput(
                              "Select_Variables",
-                             "Select_Variables",
+                             "Select Variables",
                              choices = c("Rented Bike Count"="Rented_Bike_Count",
-                                         "BinRent vs. Season"="BinRentVsSeason"
+                                         "Temperature"="Temperature"
                              ),
                              selected = "Rented_Bike_Count"
                          ),
@@ -223,7 +225,7 @@ server <- function(input, output, session) {
     #Numerical Summaries
     
     output$Numerical_Summaries <- DT::renderDataTable({
-        
+        bike$Season<-as.factor(bike$Season)
         if (input$Select_Variables=="Rented_Bike_Count"){
             if(input$SumOption=="common"){
                 describe(bike$Rented_Bike_Count, fast=TRUE)
@@ -231,11 +233,11 @@ server <- function(input, output, session) {
                 describe(bike$Rented_Bike_Count, IQR=TRUE)
             }
             
-            else if (input$Select_Variables=="BinRent_vs._Season"){
+            else if (input$Select_Variables=="Temperature"){
                 if(input$SumOption=="common"){
-                    describe(bike$Rented_Bike_Count, fast=TRUE)
+                    describe(bike$Temperature, fast=TRUE)
                 }else if(input$SumOption=="IQR"){
-                    describe(bike$Rented_Bike_Count, IQR=TRUE)
+                    describe(bike$Temperature, IQR=TRUE)
                 }
             }
         }
@@ -245,29 +247,21 @@ server <- function(input, output, session) {
     
     #Graphical Summaries
     
-    # output$Graphical_Summaries <- renderPlot({
-    #     if(input$PlotType == "Histogram"){
-    #         histVar<-input$HistogramVariable
-    #         if (histVar=="Rented_Bike_Count "){
-    #             xLabel="Rented_Bike_Count"
-    #         }else if (histVar=="BinRent") {
-    #             xLabel="BinRent"
-    #         }
-    #         
-    #         x<-bike[[histVar]]
-    #         ggplot(data = bike, aes(x = histVar))
-    #         + geom_histogram() +
-    #             labs(title = paste0("Histogram of ",xLabel), x = xLabel, y = "Count")
-    #         
-    #     }else {
-    #         ###Scatter Plot
-    #         # numerical variables from data set only
-    #         bike1 <- subset(bike, select = -c(Seasons, Holiday, `Functioning_Day`, binRent))
-    #         # scatterplot matrix of all numeric variables
-    #         ggpairs(bike1)
-    #     }
-    # })
-    
+    output$Graphical_Summaries <- renderPlot({
+        if(input$PlotType == "Histogram"){
+            ggplot(data = bike, aes(x = Rented_Bike_Count))
+            + geom_histogram() +
+                labs(title = "Histogram of Rented_Bike_Count", xlab = "Rented_Bike_Count", ylab= "Count")
+
+        }else {
+            ###Scatter Plot
+            # numerical variables from data set only
+            bike1 <- subset(bike, select = -c(Date,Seasons, Holiday, Functioning_Day, binRent))
+            # scatterplot matrix of all numeric variables
+            ggpairs(bike1)
+        }
+    })
+
     
     # Modeling page
     
