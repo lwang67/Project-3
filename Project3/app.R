@@ -12,11 +12,12 @@ library(GGally)
 
 # read data
 bike <- read.csv("~/Documents/NCSU/ST558/repos/Project-3/SeoulBikeData.csv", header = FALSE)
+
+#Rename of columns
 colnames(bike) <- c("Date","Rented_Bike_Count","Hour","Temperature","Humidity","Wind_speed","Visibility","Dew_point_temperature","Solar_Radiation","Rainfall","Snowfall","Seasons","Holiday","Functioning_Day")
+
 # remove the first row
 bike<-bike[-1,]
-# drop date
-#bike <- subset(bike, select = -c(Date))
 
 #Convert the data type into numeric
 bike <- transform(bike,Rented_Bike_Count = as.numeric(Rented_Bike_Count),
@@ -30,7 +31,6 @@ bike <- transform(bike,Rented_Bike_Count = as.numeric(Rented_Bike_Count),
                   Rainfall = as.numeric(Rainfall),
                   Snowfall = as.numeric(Snowfall))
 
-# print(describe(bike))
 
 # create binary variable for response variable
 # 1 if the number of bikes rented is greater than or equal to 700 and 0 otherwise
@@ -131,6 +131,7 @@ ui <- fluidPage(
                  
                  sidebarLayout(
                      sidebarPanel(
+                         #Modeling Info
                          h4("Modeling Info"),
                          radioButtons("Select_model", 
                                       "Select model for Description",
@@ -147,6 +148,7 @@ ui <- fluidPage(
                                       choiceNames = c("0.75","0.8"),
                                       choiceValues = c("0.75", "0.8")),
                          
+                         # Select variable(s) of the model
                          checkboxGroupInput(inputId = "modelColumns", 
                                             label = "Select variable(s) of the model",
                                             choices = c("Hour"="Hour","Temperature(°C)"="Temperature","Humidity(%)"="Humidity","Wind speed (m/s)"="Wind_speed","Visibility (10m)"="Visibility","Dew point temperature(°C)"="Dew_point_temperature","Solar Radiation (MJ/m2)"="Solar_Radiation","Rainfall(mm)"="Rainfall","Snowfall (cm)"="Snowfall"),
@@ -157,6 +159,7 @@ ui <- fluidPage(
                          actionButton("buttonRunModels", "Run Models"),
                          br(),
                          br(),
+                         
                          #Predictions
                          h4("Predictions"),
                          radioButtons("rdoPredModel", 
@@ -233,8 +236,10 @@ ui <- fluidPage(
                                             choices = c("Date"="Date","Rented Bike Count"="Rented_Bike_Count","Hour"="Hour","Temperature(°C)"="Temperature","Humidity(%)"="Humidity","Wind speed (m/s)"="Wind_speed","Visibility (10m)"="Visibility","Dew point temperature(°C)"="Dew_point_temperature","Solar Radiation (MJ/m2)"="Solar_Radiation","Rainfall(mm)"="Rainfall","Snowfall (cm)"="Snowfall","Seasons"="Seasons","Holiday"="Holiday","Functioning Day"="Functioning_Day","binRent"="binRent"),
                                             selected = c("Date","Rented_Bike_Count","Hour","Temperature","Humidity","Wind_speed","Visibility","Dew_point_temperature","Solar_Radiation","Rainfall","Snowfall","Seasons","Holiday","Functioning_Day","binRent")
                          ),
+                         
                          #Save the data as a file
                          h4("Download the Data Set"),
+                         
                          #download
                          downloadButton("downloadset", "Download")
                      ),
@@ -255,19 +260,7 @@ server <- function(input, output, session) {
     
     #Data Exploration
     
-    # Numerical Summaries
-    # observeEvent(input$Select_Variables, {
-    #     print(input$Select_Variables)
-    # })
-    
-    getDataAll <- reactive({
-        #For complete dataset
-        newData <- bike[1:1000,input$Select_Variables,drop=FALSE]
-        print(newData)
-    })
-    
     output$Numerical_Summaries <- DT::renderDataTable({
-        # bike$Season<-as.factor(bike$Season)
         if (input$Select_Variables=="Rented_Bike_Count"){
             if(input$SumOption=="common"){
                 if(input$rowoption=="Spring"){
@@ -338,7 +331,7 @@ server <- function(input, output, session) {
     
     output$Graphical_Summaries <- renderPlot({
         if(input$PlotType == "Histogram"){
-            # print(getDataAll())
+
             ggplot(data = bike, aes(x = bike$Rented_Bike_Count)) +
              geom_histogram(color="black", fill="white") +
                 labs(title = "Histogram of Rented Bike Count", x = "Rented Bike Count", y= "Count")+
@@ -356,6 +349,8 @@ server <- function(input, output, session) {
     })
     
     # Modeling page
+    
+    
     # Model Info tab
     output$modelInfo <- renderUI({
         if(input$Select_model == "MLR"){
@@ -371,18 +366,16 @@ server <- function(input, output, session) {
         }
     })
     
-    # # Model Fitting tab
+    # Model Fitting tab
     observeEvent(input$buttonRunModels, {
         propor<-as.numeric(input$proportion)
-        # print(class(propor))
         # Data Split
         set.seed(111)
         bike1 <- subset(bike, select = -c(Date,Seasons, Holiday, Functioning_Day, binRent))
-        # print(sapply(bike1, class))
         # Split the data into a training and test set
         train <- sample(1:nrow(bike1), size = nrow(bike1)*propor)
         test <- setdiff(1:nrow(bike1), train)
-        # # trainiing and testing subsets
+        # # training and testing subsets
         bikeTrain <- bike1[train, ]
         bikeTest <- bike1[test, ]
         column_list<-c(input$modelColumns, "Rented_Bike_Count")
@@ -413,7 +406,6 @@ server <- function(input, output, session) {
         )
         
         
-        
         #regression tree
         treeFit <- tree(Rented_Bike_Count ~ ., data = subbikeTrain)
         
@@ -423,7 +415,7 @@ server <- function(input, output, session) {
         
         #Compare regression tree Model on Test Set
         p_rtNew <- predict(treeFit, newdata = subbikeTest)
-        # get RMSE's for testing set for Linear Regression model
+        # get RMSE's for testing set for regression tree model
         rmse1<-postResample(p_rtNew, obs = bike$Rented_Bike_Count)
         output$model_RT <- renderPrint(
             rmse1
@@ -500,7 +492,6 @@ server <- function(input, output, session) {
     
     #Data Page
     getDataAll <- reactive({
-        #For complete dataset
         newData <- bike[1:input$numberRows,input$columns,drop=FALSE]
     })
     output$dataset = DT::renderDataTable(
