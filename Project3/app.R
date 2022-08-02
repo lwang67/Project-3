@@ -78,30 +78,43 @@ ui <- fluidPage(
                          selectInput(
                              "Select_Variables",
                              "Select Variables",
-                             choices = c("Rented Bike Count"="Rented_Bike_Count","Hour"="Hour","Temperature(°C)"="Temperature","Humidity(%)"="Humidity","Wind speed (m/s)"="Wind_speed","Visibility (10m)"="Visibility","Dew point temperature(°C)"="Dew_point_temperature","Solar Radiation (MJ/m2)"="Solar_Radiation","Rainfall(mm)"="Rainfall","Snowfall (cm)"="Snowfall"
+                             choices = c("Rented Bike Count"="Rented_Bike_Count","Temperature(°C)"="Temperature","Humidity(%)"="Humidity"
                              ),
                              selected = "Rented_Bike_Count"
                          ),
                          
+                         #Filter the Rows
+                         radioButtons(inputId = "rowoption",
+                                      label = "Filter the Rows",
+                                      choiceNames = c("Seasons_Spring","Seasons_Summer" ),
+                                      choiceValues = c("Spring","Summer")
+                         ),
+                         
+                         #Type of Summary
                          radioButtons(inputId = "SumOption",
                                       label = "Type of Summary",
-                                      choiceNames = c("Common Summary Statistics","IQR" ),
+                                      choiceNames = c("Measure Central Tendency","Measure Dispersion" ),
                                       choiceValues = c("common","IQR")
                          ),
+                         
+                         
+                        
                          br(),
                          br(),
                          # Graphical Summaries
                          h4("Graphical Summaries"),
+                         #Type of Plot
                          radioButtons("PlotType", 
                                       "Type of Plot",
-                                      choiceNames = c("Histogram", "Scatter Plot"),
+                                      choiceNames = c("Histogram of Rented Bike Count", "Scatterplot Matrix of All Numeric Variables"),
                                       choiceValues = c("Histogram", "scatter" ))
                      ),
                      
                      mainPanel(
                          h3("Numerical Summaries"),
                          DTOutput("Numerical_Summaries"),
-                         
+                         br(),
+                         br(),
                          h3("Graphical Summaries"),
                          plotOutput('Graphical_Summaries')
                          
@@ -139,10 +152,11 @@ ui <- fluidPage(
                                             choices = c("Hour"="Hour","Temperature(°C)"="Temperature","Humidity(%)"="Humidity","Wind speed (m/s)"="Wind_speed","Visibility (10m)"="Visibility","Dew point temperature(°C)"="Dew_point_temperature","Solar Radiation (MJ/m2)"="Solar_Radiation","Rainfall(mm)"="Rainfall","Snowfall (cm)"="Snowfall"),
                                             selected = c("Hour","Temperature","Humidity","Wind_speed","Visibility","Dew_point_temperature","Solar_Radiation","Rainfall","Snowfall")),
                          
+                         
                          #set a button and fit all three models on the training data
                          actionButton("buttonRunModels", "Run Models"),
                          br(),
-                         
+                         br(),
                          #Predictions
                          h4("Predictions"),
                          radioButtons("rdoPredModel", 
@@ -150,12 +164,13 @@ ui <- fluidPage(
                                       choiceNames = c("Multiple Linear Regression","Regression Tree","Random Forest"),
                                       choiceValues = c("MLR", "Rtree","RF")),
                          
+                         
                          numericInput("Hour", "Hour",10, min = 0, max = 23,step=1),
                          numericInput("Temperature", "Temperature(°C)",0, min = -17.8, max = 39.4,step=0.1),
                          numericInput("Humidity", "Humidity(%)",50, min = 0, max = 98,step=1),
                          numericInput("Wind_speed", "Wind speed(m/s)",5, min = 0, max = 7.4,step=0.1),
                          numericInput("Visibility", "Visibility(10m)",100, min = 27, max = 2000,step=10),
-                         numericInput("Dew_point_temperature", "Dew point temperature(°C)",-30.6, min = -30.6, max = 27.2,step=0.1),
+                         numericInput("Dew_point_temperature", "Dew point temperature(°C)",10, min = -30.6, max = 27.2,step=0.1),
                          numericInput("Solar_Radiation", "Solar Radiation(MJ/m2)",1, min = 0, max = 3.52,step=0.1),
                          numericInput("Rainfall", "Rainfall(mm)",25, min = 0, max = 35,step=1),
                          numericInput("Snowfall", "Snowfall(cm)",8, min = 0, max = 8.8,step=0.1)
@@ -255,19 +270,67 @@ server <- function(input, output, session) {
         # bike$Season<-as.factor(bike$Season)
         if (input$Select_Variables=="Rented_Bike_Count"){
             if(input$SumOption=="common"){
-                #class(bike$Rented_Bike_Count)
-                describe(bike$Rented_Bike_Count, fast=TRUE)
+                if(input$rowoption=="Spring"){
+                    bike %>% filter(bike$Seasons=="Spring") %>%
+                        summarise(Mean = mean(Rented_Bike_Count), Median = median(Rented_Bike_Count))
+                }else{
+                    bike %>% filter(bike$Seasons=="Summer") %>%
+                        summarise(Mean = mean(Rented_Bike_Count), Median = median(Rented_Bike_Count))
+                }
+
             }else if(input$SumOption=="IQR"){
-                describe(bike$Rented_Bike_Count, IQR=TRUE)
+                if(input$rowoption=="Spring"){
+                    bike %>% filter(bike$Seasons=="Spring") %>%
+                        summarise(Standard_Deviation = sd(Rented_Bike_Count))
+                }else{
+                    bike %>% filter(bike$Seasons=="Summer") %>%
+                        summarise(Standard_Deviation = sd(Rented_Bike_Count))
+                }
+                
             }
             
         }else if (input$Select_Variables=="Temperature"){
             if(input$SumOption=="common"){
-                describe(bike$Temperature, fast=TRUE)
+                if(input$rowoption=="Spring"){
+                    bike %>% filter(bike$Seasons=="Spring") %>%
+                        summarise(Mean = mean(Temperature), Median = median(Temperature))
+                }else{
+                    bike %>% filter(bike$Seasons=="Summer") %>%
+                        summarise(Mean = mean(Temperature), Median = median(Temperature))
+                }
+                
             }else if(input$SumOption=="IQR"){
-                describe(bike$Temperature, IQR=TRUE)
+                if(input$rowoption=="Spring"){
+                    bike %>% filter(bike$Seasons=="Spring") %>%
+                        summarise(Standard_Deviation = sd(Temperature))
+                }else{
+                    bike %>% filter(bike$Seasons=="Summer") %>%
+                        summarise(Standard_Deviation = sd(Temperature))
+                }
+        }
+        }else{
+            if(input$SumOption=="common"){
+                if(input$rowoption=="Spring"){
+                    bike %>% filter(bike$Seasons=="Spring") %>%
+                        summarise(Mean = mean(Humidity), Median = median(Humidity))
+                }else{
+                    bike %>% filter(bike$Seasons=="Summer") %>%
+                        summarise(Mean = mean(Humidity), Median = median(Humidity))
+                }
+                
+            }else if(input$SumOption=="IQR"){
+                if(input$rowoption=="Spring"){
+                    bike %>% filter(bike$Seasons=="Spring") %>%
+                        summarise(Standard_Deviation = sd(Humidity))
+                }else{
+                    bike %>% filter(bike$Seasons=="Summer") %>%
+                        summarise(Standard_Deviation = sd(Humidity))
+                }
             }
         }
+            
+            
+        
     })
     
     #Select_Variables
@@ -277,15 +340,18 @@ server <- function(input, output, session) {
         if(input$PlotType == "Histogram"){
             # print(getDataAll())
             ggplot(data = bike, aes(x = bike$Rented_Bike_Count)) +
-             geom_histogram(color="black", fill="white") #+
-            # labs(title = "Histogram of Rented_Bike_Count", xlab = "Rented_Bike_Count", ylab= "Count")
+             geom_histogram(color="black", fill="white") +
+                labs(title = "Histogram of Rented Bike Count", x = "Rented Bike Count", y= "Count")+
+                theme(plot.title = element_text(size=22))
         }else {
             ###Scatter Plot
             # numerical variables from data set only
             bike1 <- subset(bike, select = -c(Date,Seasons, Holiday, Functioning_Day, binRent))
-            # print(bike1)
+            
             # scatterplot matrix of all numeric variables
-            ggpairs(bike1)
+            ggpairs(bike1)+
+                labs(title="Scatterplot Matrix of All Numeric Variables")+
+                theme(plot.title = element_text(size=22))
         }
     })
     
@@ -371,13 +437,13 @@ server <- function(input, output, session) {
             
             #Linear Regression Model
             p_LMNew <- predict(mlrFit, newdata = dataInput)
-            p_LMOut<-paste0("The predicted Rented Bike Count from the Linear Regression Model is: ",p_LMNew)
+            p_LMOut<-paste0("The prediction of  Rented Bike Count for the Linear Regression Model is: ",p_LMNew)
             #Regression Tree Model
             p_RTNew <- predict(treeFit, newdata = dataInput)
-            p_RTOut<-paste0("The predicted Rented Bike Count from the Regression Tree Model is: ",p_RTNew)
+            p_RTOut<-paste0("The prediction of  Rented Bike Count for the Regression Tree Model is: ",p_RTNew)
             #Random Forest Model
             p_RFNew <- predict(randomForestFit, newdata = dataInput)
-            p_RFOut<-paste0("The predicted Rented Bike Count from the Random Forest Model is: ",p_RFNew)
+            p_RFOut<-paste0("The prediction of Rented Bike Count for the Random Forest Model is: ",p_RFNew)
             
             if (input$rdoPredModel=="MLR"){
                 p_LMOut
