@@ -386,11 +386,14 @@ server <- function(input, output, session) {
         bikeTrain <- bike1[train, ]
         bikeTest <- bike1[test, ]
         column_list<-c(input$modelColumns, "Rented_Bike_Count")
-        # print(column_list)
+        
         subbikeTest <- bikeTest[,column_list,drop=FALSE]
         subbikeTrain <- bikeTrain[,column_list,drop=FALSE]
-        # print(bikeTest)
-        mlrFit <- train(Rented_Bike_Count ~ ., data = subbikeTrain,
+        
+        
+        #multiple linear regression
+        mlrFit <- train(Rented_Bike_Count ~ ., 
+                        data = subbikeTrain,
                       method = "lm",
                       # standardize the variables (center and scale each observation)
                       preProcess = c("center", "scale"),
@@ -399,15 +402,47 @@ server <- function(input, output, session) {
             summary(mlrFit)
         )
         
-        randomForestFit <- train(Rented_Bike_Count ~ ., data = subbikeTrain,
+       
+        #Compare random forest model on Test Set
+        p_LMNew <- predict(mlrFit, newdata = subbikeTest)
+        # get RMSE's for testing set for multiple linear regression model
+        rmse<-postResample(p_LMNew, obs = bike$Rented_Bike_Count)
+        output_mlr<-paste0("Comparing on test set, the RMSE of the multiple linear regression model is: ",rmse[[1]])
+        output$modelFitMLR <- renderText(
+            output_mlr
+        )
+        
+        
+        
+        #regression tree
+        treeFit <- tree(Rented_Bike_Count ~ ., data = subbikeTrain)
+        
+        output$modelPlotRTree <- renderPlot({
+            plot(treeFit);text(treeFit)
+        })
+        
+        #Compare regression tree Model on Test Set
+        p_rtNew <- predict(treeFit, newdata = subbikeTest)
+        # get RMSE's for testing set for Linear Regression model
+        rmse1<-postResample(p_rtNew, obs = bike$Rented_Bike_Count)
+        output$model_RT <- renderPrint(
+            rmse1
+        )
+        
+        output_RT<-paste0("Comparing on test set, the RMSE of the regression tree model is: ",rmse1[[1]])
+        output$modelFitRT <- renderText(
+            output_RT
+        )
+        
+        
+        #random forest model.
+        randomForestFit <- train(Rented_Bike_Count ~ ., 
+                                 data = subbikeTrain,
                                  method="rf",
                                  preProcess=c("center","scale"),
-                                 trControl=trainControl(method="repeatedcv",number=2,repeats=1),
+                                 trControl=trainControl(method="repeatedcv",number=3,repeats=1),
                                  tuneGrid=data.frame(mtry=1:3))
-        # print(summary(randomForestFit))
-        # output$model_RF <- renderPlot(
-        #     varImpPlot(randomForestFit)
-        # )
+        
         
         varImpOutput<-caret::varImp(randomForestFit, scale = FALSE)
         output$model_RF <- renderPrint(
@@ -415,13 +450,17 @@ server <- function(input, output, session) {
             varImpOutput
         )
         
-        treeFit <- tree(Rented_Bike_Count ~ ., data = subbikeTrain)
-        output$modelPlotRTree <- renderPlot({
-            plot(treeFit);text(treeFit)
-        })
+        #Compare random forest model on Test Set
+        p_rfNew <- predict(randomForestFit, newdata = subbikeTest)
+        # get RMSE's for testing set for Linear Regression model
+        rmse2<-postResample(p_rfNew, obs = bike$Rented_Bike_Count)
+        output_RF<-paste0("Comparing on Test Set, the RMSE of the random forest model is: ",rmse2[[1]])
+        output$modelFitRF <- renderText(
+            output_RF
+        )
         
         
-        #Display the summary statistics
+        #Prediction tab
         output$modelPred <- renderPrint({
             dfPredictions<-data.frame(Hour=input$Hour,
                                       Temperature=input$Temperature,
