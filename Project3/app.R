@@ -354,6 +354,7 @@ server <- function(input, output, session) {
             plot(treeFit);text(treeFit)
         })
         
+        
         #Display the summary statistics
         output$modelPred <- renderPrint({
             dfPredictions<-data.frame(Hour=input$Hour,
